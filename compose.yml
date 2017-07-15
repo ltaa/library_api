@@ -1,0 +1,22 @@
+version: "2.1"
+services:
+  library-api:
+    image: "library_api"
+    ports:
+      - 2020
+    restart: always
+  library:
+    image: "library"
+    ports:
+      - 3000
+    restart: always
+  library-db:
+    image: "library_db"
+    ports:
+      - 5432
+    restart: always
+  nginx-library:
+    image: nginx_router
+    ports:
+      - 4000:80
+    restart: always
