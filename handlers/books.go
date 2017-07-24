@@ -5,12 +5,11 @@ import (
 	"encoding/json"
 	"net/http"
 	"github.com/gorilla/mux"
-	"strconv"
-	"database/sql"
 	"io/ioutil"
 	"io"
 	"fmt"
-	//"strings"
+	"database/sql"
+	"errors"
 )
 
 
@@ -23,7 +22,6 @@ type book struct {
 }
 
 
-
 func validateCreateJson(b *book) (error) {
 	if b.Name == "" || b.Publisher == "" || b.Year == 0 || len(b.Author) == 0 {
 		return fmt.Errorf("json is empty")
@@ -34,7 +32,7 @@ func validateCreateJson(b *book) (error) {
 
 func createBookResponse(msg string) []byte {
 	b := createBookJson{Message: msg}
-	data,err := json.Marshal(&b)
+	data, err := json.Marshal(&b)
 	if err != nil {
 		log.Print(err)
 		return nil
@@ -45,14 +43,13 @@ func createBookResponse(msg string) []byte {
 
 func updateBookResponse(msg string) []byte {
 	b := updateBookJson{Message: msg}
-	data,err := json.Marshal(&b)
+	data, err := json.Marshal(&b)
 	if err != nil {
 		log.Print(err)
 		return nil
 	}
 	return data
 }
-
 
 
 func deledeBook(w http.ResponseWriter, r *http.Request) {
@@ -64,25 +61,19 @@ func deledeBook(w http.ResponseWriter, r *http.Request) {
 	}
 	b := make([]book, 0, 1)
 
-	err = json.Unmarshal(data, &b)
-
-	if err != nil {
+	if err = json.Unmarshal(data, &b); err != nil {
 		log.Print(err)
 		return
 	}
 
-	err = deleteBookInstance(b)
-
-	if err != nil {
+	if err = deleteBookInstance(b) ; err != nil {
 		log.Print(err)
 
 	}
+
 	w.WriteHeader(http.StatusOK)
 
 }
-
-
-
 
 func createBook(w http.ResponseWriter, r *http.Request) {
 
@@ -96,26 +87,18 @@ func createBook(w http.ResponseWriter, r *http.Request) {
 
 	b := book{}
 	json.Unmarshal(inputData, &b)
-
-
-	log.Print(b)
+	// if error handler
 
 	if err := validateCreateJson(&b); err != nil {
 		return
 	}
 	createBookDb(&b)
 
-	err = writeOk(w, createBookResponse("book added"))
-
-	if err != nil {
+	if err = writeOk(w, createBookResponse("book added")); err != nil {
 		log.Print(err)
 	}
 }
 
-type updateJson struct {
-	Book_id int	`json:"book_id"`
-	book
-}
 
 func updateBook(w http.ResponseWriter, r *http.Request) {
 
@@ -131,39 +114,29 @@ func updateBook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	u := book{}
-	err = json.Unmarshal(b, &u)
-	if err != nil {
+	if err = json.Unmarshal(b, &u); err != nil {
 		log.Print(err)
 		return
 	}
 
-
-	err = updateBookInstance(&u)
-
-	if err != nil {
+	if err := updateBookInstance(&u) ; err != nil {
 		log.Print(err)
 		return
 	}
 
-	err = writeOk(w, updateBookResponse("updated success"))
-
-	if err != nil {
+	if err := writeOk(w, updateBookResponse("updated success")); err != nil {
 		log.Print(err)
 	}
-
 
 }
-
-
-
-
 
 
 func booksQuerySearch(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	query := vars["query"]
 
-	rows, err := db.Query(`select book_instances.instance_id,
+	state := library
+	queryString := `select book_instances.instance_id,
 		books.book_name,
 		books.year,
 		publishers.publisher_name,
@@ -178,44 +151,43 @@ func booksQuerySearch(w http.ResponseWriter, r *http.Request) {
 			) authors
 			join books on books.book_id = authors.book_id
 			join publishers on books.publisher_id = publishers.publisher_id
-			join book_instances on book_instances.book_id = books.book_id where LOWER(books.book_name) LIKE LOWER( '%' || $1 || '%')`, query)
+			join book_instances on book_instances.book_id = books.book_id where LOWER(books.book_name) LIKE LOWER( '%' || $1 || '%')`
 
+	var err error
+	var rows *sql.Rows
+	if state == library {
+		queryString += "AND book_instances.state = $2"
+		rows, err = db.Query(queryString, query, state)
+	} else {
+
+		rows, err = db.Query(queryString, query)
+	}
 
 	if err != nil {
 		log.Print(err)
 		return
 	}
 
-bookSlice := make([]book, 0, 1)
-
-	for rows.Next() {
-		b := book{}
-		var state BookState
-		rows.Scan(&b.Instance_id, &b.Name, &b.Year, &b.Publisher, &b.Author, &state)
-
-		if state != "library" {
-			continue
-		}
-
-
-		bookSlice = append(bookSlice, b)
-
-	}
-
-	b, err := json.Marshal(bookSlice)
-
+	bookSlice, err := getBookMap(rows, state)
 	if err != nil {
 		log.Print(err)
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	w.Write(b)
+	if err := writeData(w, http.StatusOK, marshalJson(bookSlice)); err != nil {
+		log.Print(err)
+	}
+
+	//b, err := json.Marshal(bookSlice)
+	//
+	//if err != nil {
+	//	log.Print(err)
+	//	return
+	//}
+	//
+	//w.WriteHeader(http.StatusOK)
+	//w.Write(b)
 }
-
-
-
-
 
 
 func getBookInstances (w http.ResponseWriter, r *http.Request) {
@@ -226,6 +198,7 @@ func getBookInstances (w http.ResponseWriter, r *http.Request) {
         publishers.publisher_name,
         authors.authors,
         book_instances.state
+
         from
         (
           select array_agg(concat_ws('_',a.first_name,a.last_name)) as authors,
@@ -235,9 +208,7 @@ func getBookInstances (w http.ResponseWriter, r *http.Request) {
         ) authors
           join books on books.book_id = authors.book_id
           join publishers on books.publisher_id = publishers.publisher_id
-          join book_instances on book_instances.book_id = books.book_id`)
-
-
+          join book_instances on book_instances.book_id = books.book_id where book_instances.state = $1 ORDER BY instance_id`, library)
 
 
 	if err != nil {
@@ -245,52 +216,27 @@ func getBookInstances (w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	bookSlice := make([]book, 0, 1)
-
-	for rows.Next() {
-		b := book{}
-		var state BookState
-		rows.Scan(&b.Instance_id, &b.Name, &b.Year, &b.Publisher, &b.Author, &state)
-
-		if state != "library" {
-			continue
-		}
-
-		bookSlice = append(bookSlice, b)
-
-	}
-
-	data, err := json.Marshal(bookSlice)
-	log.Print(data)
-
+	bookSlice, err := getBookMap(rows, library)
 	if err != nil {
 		log.Print(err)
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	w.Write(data)
+	if err := writeData(w, http.StatusOK, marshalJson(bookSlice)) ; err != nil {
+		log.Print(err)
+	}
 
 }
 
 
 
-func bookRequestDb(b []int, state BookState, tx *sql.Tx ) ([]book){
-
-	var next_state BookState
-	if state == library {
-		next_state = processing
-	} else if state == processing {
-		next_state = client
-	} else if state == client {
-		next_state = library
-	}
+func bookChangeState(b []int, state StateChange ) ([]book, error){
 
 	var queryInString string
 	queryInString = getPrepareString(len(b), 1)
 	inBookIface := getPrepareInterface(b)
 
-	stmt, err := tx.Prepare(`select book_instances.instance_id,
+	stmt, err := state.tx.Prepare(`select book_instances.instance_id,
         books.book_name,
     		books.year,
         publishers.publisher_name,
@@ -309,53 +255,38 @@ func bookRequestDb(b []int, state BookState, tx *sql.Tx ) ([]book){
 
 
 	if err != nil {
-		log.Print(err)
-		return nil
+		return nil, err
 	}
 
-	log.Printf("len of inBookIface ", len(inBookIface))
 	rows, err := stmt.Query(inBookIface...)
 
 	if err != nil {
-		log.Print(err)
-		return nil
+		return nil, err
 	}
 
 	defer stmt.Close()
 
-	bookSlice := make([]book, 0, 1)
-
-	for rows.Next() {
-		b := book{}
-		var row_state BookState
-		rows.Scan(&b.Instance_id, &b.Name, &b.Year, &b.Publisher, &b.Author, &row_state)
-
-			if row_state != state {
-				log.Print("error state")
-				return nil
-			}
-
-
-		bookSlice = append(bookSlice, b)
-
+	bookSlice, err := getBookChangeState(rows, state.curent)
+	if err != nil {
+		return nil, err
 	}
 
-	lenSlice := len(b) + 1
-	queryInString += ", $" + strconv.FormatInt(int64(lenSlice), 10)
-	log.Print(queryInString)
-	updateIfaceSlice := make([]interface{}, 0, len(inBookIface) + 1)
-	updateIfaceSlice = append(updateIfaceSlice, next_state)
-	updateIfaceSlice = append(updateIfaceSlice, inBookIface...)
+	if bookSlice == nil || len(bookSlice) != len(b) {
+		return nil, errors.New("invalid result entity count")
+	}
 
-	urows, err := tx.Query("update book_instances set state = $1 where instance_id IN ( " + queryInString[3:] + ")" ,  updateIfaceSlice...)
-
-	defer urows.Close()
+	urows, err := state.tx.Prepare("update book_instances set state = $1 where instance_id = $2")
 
 	if err != nil {
-		log.Print(err)
-		return nil
+		return nil, err
+	}
+	defer urows.Close()
+
+	for _, curentBook := range bookSlice {
+		if _, err := urows.Exec(state.next, curentBook.Instance_id); err != nil {
+			return nil, err
+		}
 	}
 
-
-	return bookSlice
+	return bookSlice, nil
 }

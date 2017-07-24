@@ -8,6 +8,11 @@ import (
 	"errors"
 	"strings"
 	"log"
+	//"github.com/docker/docker/pkg/discovery/file"
+	//"io"
+	"net/http"
+	"encoding/json"
+	"fmt"
 )
 
 type author struct{
@@ -21,14 +26,6 @@ type getCard struct {
 	Id int `json:"id"`
 	books []int
 }
-
-//type books struct {
-//	Instance_id int `json:"instance_id"`
-//	Name string `json:"name"`
-//	Year int `json:"year"`
-//	Author []string `json:"author"`
-//	Publisher string `json:"publisher"`
-//}
 
 type bookId struct{
 	Instance_id int `json:"instance_id"`
@@ -80,8 +77,9 @@ type BookState string
 
 const (
 	library BookState = "library"
-	processing = "processing"
-	client = "client"
+	processing  BookState = "processing"
+	client BookState = "client"
+	showAll BookState = "showAll"
 
 )
 
@@ -115,13 +113,10 @@ func (a *bookAuthors) Scan(value interface{}) error {
 	byteSlice, ok := value.([]byte)
 
 	s := string(byteSlice)
-	log.Print(s)
 
 	if !ok {
 		return errors.New("scaned value is not []byte")
 	}
-
-	//s := string(byteValue)
 
 	s = strings.Trim(s, "{}")
 
@@ -139,8 +134,59 @@ func (a *bookAuthors) Scan(value interface{}) error {
 }
 
 
-//func (s *authors) Value() (driver.Value, error) {
-//	authors.
-//
-//	return string(s), nil
-//}
+type clientJson struct {
+	Client_id int `json:"client_id"`
+	First_name string `json:"first_name"`
+	Last_name string `json:"last_name"`
+}
+
+
+type StateChange struct {
+	tx *sql.Tx
+	curent BookState
+	next BookState
+
+}
+
+type emptyJson struct {}
+
+func marshalJson(i interface{}) ([]byte) {
+	data, err := json.Marshal(i)
+
+	if err != nil {
+		log.Print(err)
+		return nil
+	}
+
+	return data
+
+}
+
+func writeData(w http.ResponseWriter, header int, b []byte) error {
+	if b == nil {
+		return fmt.Errorf("bytes is equal nil")
+	}
+	w.WriteHeader(header)
+
+	_, err := w.Write(b)
+	if err != nil {
+		return err
+	}
+	return nil
+
+}
+
+type errorJson struct {
+	Error string `json:"error"`
+	Message string `json:"message"`
+}
+
+type updateJson struct {
+	Book_id int	`json:"book_id"`
+	book
+}
+
+type messageJson struct {
+	//Error string `json:"error"`
+	Message string `json:"message"`
+}

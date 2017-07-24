@@ -11,6 +11,9 @@ import (
 	"io"
 	"time"
 	"github.com/gorilla/securecookie"
+	"github.com/go-kit/kit/log/level"
+	//"github.com/pkg/errors"
+	"errors"
 )
 
 
@@ -33,11 +36,13 @@ func unauth(message string) []byte {
 	return data
 }
 
-func writeError(w http.ResponseWriter, b []byte) {
+func writeAuthError(w http.ResponseWriter, b []byte) {
 	log.Print("need authenticate")
 	w.WriteHeader(http.StatusUnauthorized)
 	w.Write(b)
 }
+
+
 
 func auth(f func(w http.ResponseWriter, r *http.Request)) (func(w http.ResponseWriter, r *http.Request)) {
 
@@ -46,22 +51,21 @@ func auth(f func(w http.ResponseWriter, r *http.Request)) (func(w http.ResponseW
 		authHeader := r.Header.Get("Authorization")
 
 		if authHeader == "" {
-			writeError(w, unauth("Authorization header is empty"))
+			writeAuthError(w, unauth("Authorization header is empty"))
 			return
 		}
 
 		authValue := strings.TrimSpace(authHeader)
 
 		if authValue == "" {
-			writeError(w, unauth("Authorization header is empty"))
+			writeAuthError(w, unauth("Authorization header is empty"))
 			return
 		}
 
 		authSlice := strings.Fields(authValue)
 
 		if len(authSlice) != 2 || strings.ToLower(authSlice[0]) != authPrefix {
-			//log.Printf("need %s header", authPrefix)
-			writeError(w, unauth(fmt.Sprintf("need %s header", authPrefix)))
+			writeAuthError(w, unauth(fmt.Sprintf("need %s header", authPrefix)))
 			return
 
 		}
@@ -69,7 +73,7 @@ func auth(f func(w http.ResponseWriter, r *http.Request)) (func(w http.ResponseW
 		authValue = authSlice[1]
 
 		if authValue == "" {
-			writeError(w, unauth("token is empty"))
+			writeAuthError(w, unauth("token is empty"))
 			return
 		}
 
@@ -82,19 +86,20 @@ func auth(f func(w http.ResponseWriter, r *http.Request)) (func(w http.ResponseW
 		})
 
 		if err != nil {
-			writeError(w, unauth(err.Error()))
+			writeAuthError(w, unauth(err.Error()))
 			return
 		}
 
-		if claims, ok := token.Claims.(*jwtClaims); ok && token.Valid {
-			log.Print("name ", claims.name)
-			log.Print("exp: ", time.Unix(claims.ExpiresAt,0))
+		if _, ok := token.Claims.(*jwtClaims); ok && token.Valid {
+			//log.Print("name ", claims.name)
+			//log.Print("exp: ", time.Unix(claims.ExpiresAt,0))
 
 		} else {
-			writeError(w, unauth("invalid claims"))
+			writeAuthError(w, unauth("invalid claims"))
 			return
 		}
 
+		err = level.Error(Config.Logger).Log("error:", "handle request from host " + r.URL.Host)
 
 		f(w, r)
 
@@ -103,56 +108,62 @@ func auth(f func(w http.ResponseWriter, r *http.Request)) (func(w http.ResponseW
 
 
 
-func getToken(w http.ResponseWriter, r *http.Request) {
-	log.Print("enter getToken")
-
-
-	inputData, err := ioutil.ReadAll(io.LimitReader(r.Body, maxReadLen))
-
-	defer r.Body.Close()
-
-
-	log.Print(err)
-	if err != nil {
-		log.Print(err)
-		return
-	}
-
-	auth := authCredentials{}
-
-
-	err = json.Unmarshal(inputData, &auth)
-
+func getTokenInputValidate(inputData []byte) (*authCredentials, error) {
+	auth := new (authCredentials)
+	err := json.Unmarshal(inputData, &auth)
 
 	if err != nil {
-		log.Print(err)
-		return
+		//log.Print(err)
+		return nil, err
 	}
 
-	//
-	//need validate login and password
-	//
+
+	auth.Login = strings.TrimSpace(auth.Login)
+	auth.Password = strings.TrimSpace(auth.Password)
+
 
 	log.Print("login: ", auth.Login, " password: ", auth.Password)
 
-
 	if auth.Login == "" {
-		log.Print("login param is empty")
-		return
+		return nil, errors.New("login is empty")
 	}
-
-	//password := r.PostFormValue("password")
 
 	if auth.Password == "" {
-		log.Print("password param is empty")
-		return
+		return nil, errors.New("password is empty")
+	}
+	return auth, nil
+}
+
+
+func getTokenCredentialsValidate(auth *authCredentials ) error {
+	queryString := `SELECT (password = crypt($1, password)) from workers where login = $2`
+	//queryString =  `SELECT (password = crypt($1, password)) FROM workers where login = $2`
+	//var login string
+	//var passwd string
+
+
+	var validFlag bool
+	err := db.QueryRow(queryString, auth.Password, auth.Login).Scan(&validFlag)
+
+	if err != nil {
+		return errors.New("invalid credentials")
+		//return err
 	}
 
 
 
+	if validFlag {
+		return nil
+	} else {
+		return errors.New("invalid credentials")
+	}
+
+
+}
+
+func getTokenInstance(auth *authCredentials) (*jwtToken, error) {
+
 	expireTime := time.Now().Add(time.Hour * 24).Unix()
-
-
 	claims := jwtClaims {
 		name: auth.Login,
 	}
@@ -160,30 +171,61 @@ func getToken(w http.ResponseWriter, r *http.Request) {
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS512, claims)
 
-
-
-
 	tokenString, err := token.SignedString(signKey)
 
 	if err != nil {
 		log.Print(err)
-		return
+		return nil, err
 	}
-	tokenStruct := jwtToken{}
+
+	tokenStruct := new (jwtToken)
 	tokenStruct.Jwt = tokenString
 
-	outputData, err := json.Marshal(tokenStruct)
+	return tokenStruct, nil
 
+}
+
+func getToken(w http.ResponseWriter, r *http.Request) {
+
+
+	inputData, err := ioutil.ReadAll(io.LimitReader(r.Body, maxReadLen))
+
+	defer r.Body.Close()
+
+	log.Print(err)
+	if err != nil {
+		log.Print(err)
+		writeData(w, http.StatusBadRequest, marshalJson(emptyJson{}))
+		return
+	}
+
+	auth, err := getTokenInputValidate(inputData)
 	if err != nil {
 		log.Print(err)
 		return
 	}
 
 
-	log.Print("token:", tokenString)
-	//w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(outputData))
+	err = getTokenCredentialsValidate(auth)
+	if err != nil {
+		log.Print(err)
+		writeData(w, http.StatusForbidden, marshalJson(errorJson{Message: err.Error()}))
+		return
+	}
+
+	token, err := getTokenInstance(auth)
+
+	if err != nil {
+		log.Print(err)
+		writeData(w, http.StatusForbidden, marshalJson(errorJson{Message: err.Error()}))
+		return
+	}
+
+
+	if err := writeData(w, http.StatusOK, marshalJson(token)); err != nil {
+		log.Print(err)
+		writeData(w, http.StatusInternalServerError, marshalJson(errorJson{Message: err.Error()}))
+	}
 
 }
 

@@ -6,40 +6,31 @@ import (
 	"net/http"
 	"fmt"
 	"library_api/handlers"
+	//"go.uber.org/zap"
+	//"github.com/docker/docker/daemon/logger"
+	//"github.com/go-kit/kit/log/level"
+	"github.com/go-kit/kit/log"
+	//"io"
+	"os"
 )
-
-
-
+//
+//func init() {
+//	logger := log.NewLogfmtLogger(log.NewSyncWriter(os.Stderr))
+//	handlers.Config.Logger = logger
+//}
 func main() {
 
 
 	router := handlers.NewMux()
 
+	logger := log.NewLogfmtLogger(log.NewSyncWriter(os.Stderr))
 
-	//http.HandleFunc("/books", func (w http.ResponseWriter, r *http.Request) {
-	//	//w.Header().Set("Access-Control-Allow-Credentials", "true")
-	//	//w.Header().Set("Access-Control-Allow-Origin", "*")
-	//
-	//
-	//	//if origin := r.Header.Get("Origin"); origin != "" {
-	//	//	w.Header().Set("Access-Control-Allow-Origin", origin)
-	//	//	w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-	//	//	w.Header().Set("Access-Control-Allow-Headers",
-	//	//		"Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
-	//	//}
-	//
-	//
-	//	//w.WriteHeader(http.StatusOK)
-	//	//
-	//	//if r.Method == "OPTIONS" {
-	//	//	return
-	//	//}
+	handlers.Config.Logger = logger
 
 
-
-
-	//	w.Write([]byte("hello, world"))
-	//})
+	//level.Error(logger).Log("err", errors.New("bad data"))
+	//level.Info(logger).Log("event", "data saved")
+	//level.Debug(logger).Log("next item", 17) // filtered
 
 	err := http.ListenAndServe(":2020",  router)
 
