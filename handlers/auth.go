@@ -135,33 +135,29 @@ func getTokenInputValidate(inputData []byte) (*authCredentials, error) {
 }
 
 
-func getTokenCredentialsValidate(auth *authCredentials ) error {
-	queryString := `SELECT (password = crypt($1, password)) from workers where login = $2`
-	//queryString =  `SELECT (password = crypt($1, password)) FROM workers where login = $2`
-	//var login string
-	//var passwd string
-
+func getTokenCredentialsValidate(auth *authCredentials ) (int,error) {
+	queryString := `SELECT worker_id, (password = crypt($1, password)) from workers where login = $2`
 
 	var validFlag bool
-	err := db.QueryRow(queryString, auth.Password, auth.Login).Scan(&validFlag)
+	var worker_id int
+	err := db.QueryRow(queryString, auth.Password, auth.Login).Scan(&worker_id, &validFlag)
 
 	if err != nil {
-		return errors.New("invalid credentials")
-		//return err
+		return 0, errors.New("invalid credentials")
 	}
 
 
 
 	if validFlag {
-		return nil
+		return worker_id, nil
 	} else {
-		return errors.New("invalid credentials")
+		return 0,errors.New("invalid credentials")
 	}
 
 
 }
 
-func getTokenInstance(auth *authCredentials) (*jwtToken, error) {
+func getTokenInstance(auth *authCredentials, worker_id int) (*jwtToken, error) {
 
 	expireTime := time.Now().Add(time.Hour * 24).Unix()
 	claims := jwtClaims {
@@ -180,6 +176,7 @@ func getTokenInstance(auth *authCredentials) (*jwtToken, error) {
 
 	tokenStruct := new (jwtToken)
 	tokenStruct.Jwt = tokenString
+	tokenStruct.Worker_id = worker_id
 
 	return tokenStruct, nil
 
@@ -206,14 +203,14 @@ func getToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 
-	err = getTokenCredentialsValidate(auth)
+	id, err := getTokenCredentialsValidate(auth)
 	if err != nil {
 		log.Print(err)
 		writeData(w, http.StatusForbidden, marshalJson(errorJson{Message: err.Error()}))
 		return
 	}
 
-	token, err := getTokenInstance(auth)
+	token, err := getTokenInstance(auth, id)
 
 	if err != nil {
 		log.Print(err)
@@ -228,4 +225,3 @@ func getToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 }
-

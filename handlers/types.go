@@ -35,6 +35,7 @@ type bookId struct{
 
 type jwtToken struct {
 	Jwt string `json:"jwt"`
+	Worker_id int `json:"worker_id"`
 }
 
 type authCredentials struct {

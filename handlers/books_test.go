@@ -4,16 +4,8 @@ import (
 	"testing"
 	"net/http/httptest"
 	"net/http"
-	//"log"
 	"io/ioutil"
-	//
-	//"bytes"
-	//"os"
 	"github.com/go-kit/kit/log"
-	//"github.com/go-kit/kit/log/level"
-	//"cleanContainer/handlers"
-	//"database/sql"
-	//"bufio"
 	"bytes"
 	"encoding/json"
 	"os"
@@ -23,8 +15,6 @@ import (
 type a struct {
 	r *Router
 	token string
-	//db *sql.DB
-	//l config.log
 }
 var app a
 
@@ -35,10 +25,6 @@ func Initialize(t *testing.T) {
 	app.r = NewMux()
 	logger := log.NewLogfmtLogger(log.NewSyncWriter(os.Stderr))
 	Config.Logger = logger
-
-	//cred := []byte(`{"login":"test", "password":"test"}`)
-
-
 }
 
 
@@ -284,15 +270,7 @@ func queryCardCheckoutTest(t *testing.T) {
 	rr := httptest.NewRecorder()
 	app.r.ServeHTTP(rr, req)
 
-	//data, err := ioutil.ReadAll(rr.Body)
 	statusCode := rr.Code
-
-
-	//wantString := `[{"instance_id":1,"name":"The C Programming Language","year":2017,"author":[{"first_name":"Dennis","last_name":"Ritchie"},{"first_name":"Brian","last_name":"Kernighan"}],"publisher":"dmk press"},` +
-	//	`{"instance_id":2,"name":"The C Programming Language","year":2017,"author":[{"first_name":"Dennis","last_name":"Ritchie"},{"first_name":"Brian","last_name":"Kernighan"}],"publisher":"dmk press"},` +
-	//	`{"instance_id":4,"name":"Современное проектирование на C++","year":2015,"author":[{"first_name":"Андрей","last_name":"Александреску"}],"publisher":"williams"}]`
-
-	//resultString := string(data)
 
 	if  statusCode != http.StatusOK {
 		t.Errorf("invalid result data:\n get status Code %s\n want %s\n", rr.Code, statusCode)
@@ -314,15 +292,7 @@ func clientsReturnBook(t *testing.T) {
 	rr := httptest.NewRecorder()
 	app.r.ServeHTTP(rr, req)
 
-	//data, err := ioutil.ReadAll(rr.Body)
 	statusCode := rr.Code
-
-
-	//wantString := `[{"instance_id":1,"name":"The C Programming Language","year":2017,"author":[{"first_name":"Dennis","last_name":"Ritchie"},{"first_name":"Brian","last_name":"Kernighan"}],"publisher":"dmk press"},` +
-	//	`{"instance_id":2,"name":"The C Programming Language","year":2017,"author":[{"first_name":"Dennis","last_name":"Ritchie"},{"first_name":"Brian","last_name":"Kernighan"}],"publisher":"dmk press"},` +
-	//	`{"instance_id":4,"name":"Современное проектирование на C++","year":2015,"author":[{"first_name":"Андрей","last_name":"Александреску"}],"publisher":"williams"}]`
-
-	//resultString := string(data)
 
 	if  statusCode != http.StatusOK {
 		t.Errorf("invalid result data:\n get status Code %s\n want %s\n", rr.Code, statusCode)
