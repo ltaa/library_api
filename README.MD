@@ -1,7 +1,9 @@
 Проект содержит следующие контейнеры:
 
 nginx_router
+
 library_api
+
 library_db
 
 Также необходим образ с app
