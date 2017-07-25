@@ -353,7 +353,9 @@ func getCardProcessing (id int64, clientSlice []int) ([]book, error){
 	var prepareString string
 	if(clientSlice != nil) {
 		prepareString = getPrepareString(len(clientSlice), 2)
-		queryString += " AND operations.instance_id IN ( " + prepareString + " )"
+		queryString += " AND operations.instance_id IN ( " + prepareString + " ) ORDER BY instance_id"
+	} else {
+		queryString += " ORDER BY instance_id"
 	}
 
 	stmt, err := db.Prepare(queryString)

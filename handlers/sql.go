@@ -135,10 +135,7 @@ func createBookRelations(b *book) (int) {
 		return 0
 	}
 
-<<<<<<< HEAD
 	rows.Close()
-=======
->>>>>>> feature/develop_args
 	rows, err = tx.Query(`select books.book_id from books where books.book_name = $1 AND books.year = $2 and books.publisher_id = $3`, b.Name, b.Year, publisher_id)
 
 
@@ -223,10 +220,7 @@ func createBookRelations(b *book) (int) {
 
 	}
 
-<<<<<<< HEAD
 	rows.Close()
-=======
->>>>>>> feature/develop_args
 	tx.Commit()
 	return book_id
 
@@ -237,11 +231,7 @@ func updateBookInstance(b *book) (error) {
 	book_id := createBookRelations(b)
 
 	tx, err := db.Begin()
-<<<<<<< HEAD
 	defer tx.Rollback()
-=======
-	tx.Rollback()
->>>>>>> feature/develop_args
 	if err != nil {
 		log.Print(err)
 		return fmt.Errorf("error starting transaction")
