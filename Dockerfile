@@ -1,12 +1,21 @@
 FROM golang
 
-COPY server /server
+ENV PROJNAME=library_api
+RUN mkdir -p /app/src/$PROJNAME
+ENV GOPATH=/app
+ENV GOBIN=$GOPATH/bin
 
-#ENTRYPOINT /server
+COPY . /app/src/$PROJNAME
 
-WORKDIR /
-CMD ./server > server.log
 
+WORKDIR /app
+
+RUN go-wrapper download $PROJNAME/main
+
+RUN go build -o $GOBIN/server $PROJNAME/main
+
+
+CMD $GOBIN/server
 
 EXPOSE 2020
 

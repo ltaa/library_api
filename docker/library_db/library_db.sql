@@ -1,3 +1,5 @@
+CREATE EXTENSION pgcrypto;
+
 CREATE TABLE IF NOT EXISTS authors (
 	author_id SERIAL PRIMARY KEY,
 	first_name varchar(50),
@@ -38,7 +40,9 @@ CREATE TABLE IF NOT EXISTS book_instances (
 CREATE TABLE IF NOT EXISTS workers (
 	worker_id SERIAL PRIMARY KEY,
 	first_name varchar(50),
-	last_name varchar(50)
+	last_name varchar(50),
+	login varchar(50),
+	password varchar(128)
 );
 
 CREATE TABLE IF NOT EXISTS operations (
@@ -117,8 +121,8 @@ insert into clients (first_name,last_name) VALUES ('vasily', 'pupkin');
 insert into clients (first_name,last_name) VALUES ('petr', 'petrov');
 insert into clients (first_name,last_name) VALUES ('sidor', 'sidorov');
 
-insert into workers(first_name,last_name) VALUES ('admin', 'admin');
-insert into workers(first_name,last_name) VALUES ('gena', 'bukin');
+insert into workers(first_name, last_name, login, password) VALUES ('admin', 'admin', 'admin', crypt('admin', gen_salt('bf')));
+insert into workers(first_name, last_name, login, password) VALUES ('gena', 'bukin', 'test', crypt('test', gen_salt('bf')));
 
 
 insert into authors_books(author_id,book_id) VALUES ((select author_id from authors where last_name = 'Ritchie'), (select book_id from books where book_name = 'The C Programming Language'));
