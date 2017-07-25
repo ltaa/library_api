@@ -15,13 +15,13 @@ library (https://github.com/ltaa/library)
 
 docker build -t library_api .
 
-cd docker/library_db
-docker build -t library_db .
+cd docker/library_db && docker build -t library_db .
 
-cd ../nginx_router
-docker build -t nginx_router .
+cd ../nginx_router && docker build -t nginx_router .
 
 
 Запуск с помощью docker-compose
 
 docker-compose -f compose.yml up
+
+nginx мапится на 4000 порт localhost
