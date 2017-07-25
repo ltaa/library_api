@@ -25,3 +25,10 @@ cd ../nginx_router && docker build -t nginx_router .
 docker-compose -f compose.yml up
 
 nginx мапится на 4000 порт localhost
+
+credentials:
+
+admin/admin
+
+test/test
+
