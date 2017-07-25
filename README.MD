@@ -4,7 +4,8 @@ nginx_router
 library_api
 library_db
 
-Также необходим контейнер с app
+Также необходим образ с app
+
 library (https://github.com/ltaa/library)
 
 
@@ -18,7 +19,6 @@ docker build -t library_db .
 cd ../nginx_router
 docker build -t nginx_router .
 
-Также необхоимо собрать контейнер library(https://github.com/ltaa/library)
 
 Запуск с помощью docker-compose
 
