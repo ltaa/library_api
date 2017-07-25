@@ -1,4 +1,5 @@
 Проект содержит следующие контейнеры:
+
 nginx_router
 library_api
 library_db
@@ -7,7 +8,8 @@ library_db
 library (https://github.com/ltaa/library)
 
 
-Для сборки текущего проекта необходимо находясь в папке проекта выполнить
+Для сборки текущего проекта необходимо находясь в папке проекта выполнить:
+
 docker build -t library_api .
 
 cd docker/library_db
